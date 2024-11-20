@@ -1,0 +1,217 @@
+# Ignore Python bytecode files
+*.pyc
+*.pyo
+__pycache__/
+
+# Ignore virtual environment directories
+venv/
+env/
+
+# Ignore IDE and editor specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ignore macOS specific files
+.DS_Store
+
+# Ignore log files
+*.log
+
+# Ignore build directories
+build/
+dist/
+
+# Ignore coverage reports
+coverage/
+*.cover
+.hypothesis/
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.orig
+*.save
+
+# Ignore compiled files
+*.o
+*.obj
+*.so
+*.dll
+*.exe
+
+# Ignore dependency directories
+node_modules/
+bower_components/
+
+# Ignore package files
+*.gem
+*.egg
+*.whl
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+*.7z
+*.rar
+*.tar
+*.tgz
+*.gz
+*.bz2
+*.xz
+
+# Ignore database files
+*.sqlite
+*.db
+*.sql
+*.db-journal
+
+# Ignore configuration files
+*.cfg
+*.conf
+*.ini
+*.json
+*.xml
+*.yaml
+*.yml
+
+# Ignore documentation files
+*.md
+*.rst
+*.txt
+
+# Ignore images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.ico
+
+# Ignore audio files
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+
+# Ignore video files
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# Ignore font files
+*.ttf
+*.otf
+*.woff
+*.woff2
+
+# Ignore archives
+*.zip
+*.tar
+*.gz
+*.bz2
+*.xz
+*.7z
+*.rar
+
+# Ignore other binary files
+*.bin
+*.dmg
+*.iso
+*.img
+
+# Ignore temporary files created by the operating system
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Ignore temporary files created by the editor
+*~
+*.swp
+*.swo
+*.tmp
+*.temp
+*.bak
+*.orig
+*.save
+
+# Ignore temporary files created by the build system
+*.log
+*.aux
+*.bbl
+*.blg
+*.brf
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv
+*.toc
+*.out
+*.nav
+*.snm
+*.vrb
+*.dvi
+*.ps
+*.eps
+*.pdf
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.ico
+*.mp3
+*.wav
+*.flac
+*.aac
+*.ogg
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.wmv
+*.flv
+*.webm
+*.ttf
+*.otf
+*.woff
+*.woff2
+*.zip
+*.tar
+*.gz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.bin
+*.dmg
+*.iso
+*.img
+*.sqlite
+*.db
+*.sql
+*.db-journal
+*.cfg
+*.conf
+*.ini
+*.json
+*.xml
+*.yaml
+*.yml
+*.md
+*.rst
+*.txt
