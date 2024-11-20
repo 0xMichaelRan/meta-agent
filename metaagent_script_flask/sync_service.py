@@ -6,6 +6,7 @@ from watchdog.events import FileSystemEventHandler
 import threading
 import time
 import logging
+from datetime import datetime
 
 class FileSyncService:
     def __init__(self, api_key, local_sync_dir, remote_url, poll_interval, port):
@@ -23,47 +24,83 @@ class FileSyncService:
         self.syncing_files = set()
         self.sync_lock = threading.Lock()
 
-        # Configure logging
-        logging.basicConfig(
-            filename=f'sync_service_{self.PORT}.log',
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        logging.info(f"Initialized FileSyncService on port {self.PORT}")
-
+        # Setup logging
+        self._setup_logging()
+        
         # Flask App
         self.app = Flask(__name__)
         self._setup_routes()
 
+    def _setup_logging(self):
+        """Configure logging with proper formatting."""
+        class PortFormatter(logging.Formatter):
+            def __init__(self, fmt, port):
+                super().__init__(fmt)
+                self.port = port
+
+            def format(self, record):
+                if not hasattr(record, 'port'):
+                    record.port = self.port
+                return super().format(record)
+
+        # Create formatter with port number
+        formatter = PortFormatter(
+            '%(asctime)s - [%(levelname)s] - [Port:%(port)s] %(message)s',
+            self.PORT
+        )
+
+        # Setup handlers
+        file_handler = logging.FileHandler(f'sync_service_{self.PORT}.log')
+        file_handler.setFormatter(formatter)
+        
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+
+        # Setup logger
+        self.logger = logging.getLogger(f'FileSyncService_{self.PORT}')
+        self.logger.setLevel(logging.DEBUG)
+        self.logger.addHandler(file_handler)
+        self.logger.addHandler(console_handler)
+        self.logger.propagate = False
+
     def is_file_syncing(self, file_path):
         """Check if a file is currently being synced."""
         with self.sync_lock:
-            return file_path in self.syncing_files
+            is_syncing = file_path in self.syncing_files
+            self.logger.debug(f"Checking sync status for {file_path}: {'syncing' if is_syncing else 'not syncing'}")
+            return is_syncing
 
     def mark_file_syncing(self, file_path):
         """Mark a file as being synced."""
         with self.sync_lock:
             self.syncing_files.add(file_path)
-            logging.debug(f"Marked file as syncing: {file_path}")
+            self.logger.debug(f"🔒 Marked file as syncing: {file_path}")
+            self.logger.debug(f"Currently syncing files: {self.syncing_files}")
 
     def unmark_file_syncing(self, file_path):
         """Unmark a file as being synced."""
         with self.sync_lock:
             self.syncing_files.discard(file_path)
-            logging.debug(f"Unmarked file from syncing: {file_path}")
+            self.logger.debug(f"🔓 Unmarked file from syncing: {file_path}")
+            self.logger.debug(f"Currently syncing files: {self.syncing_files}")
 
     def _setup_routes(self):
         @self.app.route("/sync", methods=["POST"])
         def sync_endpoint():
             """Handle incoming sync requests."""
-            if request.headers.get("Authorization") != f"Bearer {self.API_KEY}":
+            auth_header = request.headers.get("Authorization")
+            if auth_header != f"Bearer {self.API_KEY}":
+                self.logger.warning("❌ Unauthorized sync attempt")
                 return jsonify({"error": "Unauthorized"}), 401
 
             data = request.json
             action = data.get("action")
             file_path = data.get("file_path")
             
+            self.logger.info(f"📥 Received sync request: {action} for {file_path}")
+            
             if not action or not file_path:
+                self.logger.error("❌ Invalid sync request data")
                 return jsonify({"error": "Invalid data"}), 400
 
             try:
@@ -74,25 +111,38 @@ class FileSyncService:
                     os.makedirs(os.path.dirname(local_path), exist_ok=True)
                     with open(local_path, "wb") as f:
                         f.write(data["file_content"].encode())
-                    logging.info(f"Synced file: {file_path}")
+                    self.logger.info(f"✅ Successfully synced file: {file_path}")
                     return jsonify({"status": "success"}), 200
 
                 elif action == "delete":
                     if os.path.exists(local_path):
                         os.remove(local_path)
-                        logging.info(f"Deleted file: {file_path}")
+                        self.logger.info(f"🗑️ Successfully deleted file: {file_path}")
+                    else:
+                        self.logger.warning(f"⚠️ File already deleted: {file_path}")
                     return jsonify({"status": "success"}), 200
 
             except Exception as e:
-                logging.error(f"Sync error for {file_path}: {str(e)}")
+                self.logger.error(f"❌ Sync error for {file_path}: {str(e)}", exc_info=True)
                 return jsonify({"error": str(e)}), 500
             finally:
                 self.unmark_file_syncing(file_path)
 
+        @self.app.route("/poll", methods=["GET"])
+        def poll_endpoint():
+            """Handle polling requests for changes."""
+            auth_header = request.headers.get("Authorization")
+            if auth_header != f"Bearer {self.API_KEY}":
+                self.logger.warning("❌ Unauthorized poll attempt")
+                return jsonify({"error": "Unauthorized"}), 401
+
+            # Return empty response if no changes
+            return jsonify([]), 200
+
     def upload_file(self, file_path):
         """Upload a file to remote instance."""
         if self.is_file_syncing(file_path):
-            logging.debug(f"Skipping upload of syncing file: {file_path}")
+            self.logger.debug(f"Skipping upload of syncing file: {file_path}")
             return
 
         try:
@@ -112,15 +162,15 @@ class FileSyncService:
             )
             
             if response.status_code != 200:
-                logging.error(f"Failed to upload {file_path}: {response.text}")
+                self.logger.error(f"Failed to upload {file_path}: {response.text}")
 
         except Exception as e:
-            logging.error(f"Error uploading {file_path}: {str(e)}")
+            self.logger.error(f"Error uploading {file_path}: {str(e)}")
 
     def delete_file(self, file_path):
         """Delete a file from remote instance."""
         if self.is_file_syncing(file_path):
-            logging.debug(f"Skipping deletion of syncing file: {file_path}")
+            self.logger.debug(f"Skipping deletion of syncing file: {file_path}")
             return
 
         try:
@@ -135,16 +185,16 @@ class FileSyncService:
             )
             
             if response.status_code != 200:
-                logging.error(f"Failed to delete {file_path}: {response.text}")
+                self.logger.error(f"Failed to delete {file_path}: {response.text}")
 
         except Exception as e:
-            logging.error(f"Error deleting {file_path}: {str(e)}")
+            self.logger.error(f"Error deleting {file_path}: {str(e)}")
 
     class WatchdogHandler(FileSystemEventHandler):
-        """Handler for Watchdog events."""
-
         def __init__(self, service):
+            super().__init__()
             self.service = service
+            self.service.logger.info("🔍 Watchdog handler initialized")
 
         def on_modified(self, event):
             if event.is_directory:
@@ -152,8 +202,10 @@ class FileSyncService:
             
             relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
             if not self.service.is_file_syncing(relative_path):
-                logging.info(f"File modified: {relative_path}")
+                self.service.logger.info(f"📝 File modified: {relative_path}")
                 self.service.upload_file(relative_path)
+            else:
+                self.service.logger.debug(f"⏩ Skipping modified event for syncing file: {relative_path}")
 
         def on_created(self, event):
             if event.is_directory:
@@ -161,13 +213,21 @@ class FileSyncService:
             
             relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
             if not self.service.is_file_syncing(relative_path):
-                logging.info(f"File created: {relative_path}")
+                self.service.logger.info(f"📄 File created: {relative_path}")
                 self.service.upload_file(relative_path)
+            else:
+                self.service.logger.debug(f"⏩ Skipping created event for syncing file: {relative_path}")
 
         def on_deleted(self, event):
-            if not event.is_directory:
-                logging.info(f"File deleted: {event.src_path}")
-                self.service.delete_file(event.src_path)
+            if event.is_directory:
+                return
+            
+            relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
+            if not self.service.is_file_syncing(relative_path):
+                self.service.logger.info(f"🗑️ File deleted: {relative_path}")
+                self.service.delete_file(relative_path)
+            else:
+                self.service.logger.debug(f"⏩ Skipping deleted event for syncing file: {relative_path}")
 
     def start_watchdog(self):
         """Start Watchdog observer."""
@@ -175,14 +235,14 @@ class FileSyncService:
         observer = Observer()
         observer.schedule(event_handler, path=self.LOCAL_SYNC_DIR, recursive=True)
         observer.start()
-        logging.info(f"Watchdog is monitoring the folder: {self.LOCAL_SYNC_DIR}")
-        print(f"Watchdog is monitoring the folder: {self.LOCAL_SYNC_DIR}")
+        self.logger.info(f"👀 Watchdog monitoring folder: {self.LOCAL_SYNC_DIR}")
+        
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
             observer.stop()
-            logging.info("Watchdog observer stopped.")
+            self.logger.info("⏹️ Watchdog observer stopped")
         observer.join()
 
     def start_polling_remote(self):
@@ -196,7 +256,7 @@ class FileSyncService:
                 if response.status_code == 200:
                     changes = response.json()
                     if changes:
-                        logging.info(f"Remote changes detected: {changes}")
+                        self.logger.info(f"Remote changes detected: {changes}")
                         print("Remote changes detected, handling them...")
                         for change in changes:
                             action = change.get("action")
@@ -209,23 +269,23 @@ class FileSyncService:
                                 try:
                                     with open(local_path, "wb") as f:
                                         f.write(file_content.encode())
-                                    logging.info(f"Downloaded and saved file: {local_path}")
+                                    self.logger.info(f"Downloaded and saved file: {local_path}")
                                 except Exception as e:
-                                    logging.error(f"Error saving downloaded file {local_path}: {e}")
+                                    self.logger.error(f"Error saving downloaded file {local_path}: {e}")
 
                             elif action == "delete":
                                 if os.path.exists(local_path):
                                     try:
                                         os.remove(local_path)
-                                        logging.info(f"Downloaded and deleted file: {local_path}")
+                                        self.logger.info(f"Downloaded and deleted file: {local_path}")
                                     except Exception as e:
-                                        logging.error(f"Error deleting downloaded file {local_path}: {e}")
+                                        self.logger.error(f"Error deleting downloaded file {local_path}: {e}")
                 elif response.status_code == 204:
-                    logging.info("No remote changes to poll.")
+                    self.logger.info("No remote changes to poll.")
                 else:
-                    logging.error(f"Failed to poll remote: {response.status_code} {response.text}")
+                    self.logger.error(f"Failed to poll remote: {response.status_code} {response.text}")
             except requests.exceptions.RequestException as e:
-                logging.error(f"Error polling remote: {e}")
+                self.logger.error(f"Error polling remote: {e}")
 
             time.sleep(self.POLL_INTERVAL)
 
@@ -235,23 +295,16 @@ class FileSyncService:
 
     def start(self):
         """Start the synchronization service."""
+        self.logger.info("=== Starting Service Components ===")
+        
         # Start Flask app in a separate thread
         flask_thread = threading.Thread(target=self.run_flask)
         flask_thread.daemon = True
         flask_thread.start()
-        logging.info(f"Flask server started on port {self.PORT}")
-        print(f"Flask server started on port {self.PORT}")
-
-        # Start polling in a separate thread
-        polling_thread = threading.Thread(target=self.start_polling_remote)
-        polling_thread.daemon = True
-        polling_thread.start()
-        logging.info("Started polling remote server.")
-        print("Started polling remote server.")
+        self.logger.info(f"🌐 Flask server started on port {self.PORT}")
 
         # Start Watchdog in the main thread
-        print("MetaAgent service is starting...")
-        logging.info("MetaAgent service is starting...")
+        self.logger.info("🚀 MetaAgent service starting...")
         self.start_watchdog()
 
 
