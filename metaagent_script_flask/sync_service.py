@@ -1,4 +1,4 @@
- import os
+import os
 import requests
 from flask import Flask, request, jsonify
 from watchdog.observers import Observer
@@ -8,8 +8,8 @@ import time
 
 # Configuration
 API_KEY = "your_api_key"  # Replace with your actual API key
-LOCAL_SYNC_DIR = "/path/to/local/folder"  # Replace with your local folder
-REMOTE_URL = "http://your-vps-address:5000"  # Replace with your VPS URL
+LOCAL_SYNC_DIR = "test_folder/metaagent"  # Replace with your local folder
+REMOTE_URL = "http://127.0.0.1:5000"  # Replace with your VPS URL
 POLL_INTERVAL = 5  # Interval for polling remote changes (seconds)
 
 # Flask App
@@ -98,6 +98,8 @@ def start_watchdog():
         observer.stop()
     observer.join()
 
+# If the remote server is also running the same service and can push updates to this client via the Flask API, polling is not necessary.
+# If the remote server does not actively notify the client about changes, polling ensures that local changes are in sync with the remote directory.
 def start_polling_remote():
     """Poll the remote server for changes."""
     while True:
