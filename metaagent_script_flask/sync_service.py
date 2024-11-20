@@ -20,9 +20,10 @@ class FileSyncService:
         # Ensure the local sync directory exists
         os.makedirs(self.LOCAL_SYNC_DIR, exist_ok=True)
 
-        # Track files being synced to prevent loops
-        self.syncing_files = set()
+        # Enhanced sync state tracking
+        self.syncing_files = {}  # Changed to dict to track timestamps
         self.sync_lock = threading.Lock()
+        self.sync_timeout = 2  # 2 seconds timeout for sync operations
 
         # Setup logging
         self._setup_logging()
@@ -66,23 +67,31 @@ class FileSyncService:
     def is_file_syncing(self, file_path):
         """Check if a file is currently being synced."""
         with self.sync_lock:
-            is_syncing = file_path in self.syncing_files
-            self.logger.debug(f"Checking sync status for {file_path}: {'syncing' if is_syncing else 'not syncing'}")
-            return is_syncing
+            if file_path not in self.syncing_files:
+                return False
+            
+            # Check if the sync has timed out
+            timestamp = self.syncing_files[file_path]
+            if time.time() - timestamp > self.sync_timeout:
+                del self.syncing_files[file_path]
+                self.logger.debug(f"Sync timeout expired for: {file_path}")
+                return False
+                
+            return True
 
     def mark_file_syncing(self, file_path):
         """Mark a file as being synced."""
         with self.sync_lock:
-            self.syncing_files.add(file_path)
+            self.syncing_files[file_path] = time.time()
             self.logger.debug(f"🔒 Marked file as syncing: {file_path}")
-            self.logger.debug(f"Currently syncing files: {self.syncing_files}")
+            self.logger.debug(f"Currently syncing files: {list(self.syncing_files.keys())}")
 
     def unmark_file_syncing(self, file_path):
         """Unmark a file as being synced."""
         with self.sync_lock:
-            self.syncing_files.discard(file_path)
+            self.syncing_files.pop(file_path, None)
             self.logger.debug(f"🔓 Unmarked file from syncing: {file_path}")
-            self.logger.debug(f"Currently syncing files: {self.syncing_files}")
+            self.logger.debug(f"Currently syncing files: {list(self.syncing_files.keys())}")
 
     def _setup_routes(self):
         @self.app.route("/sync", methods=["POST"])
@@ -96,6 +105,7 @@ class FileSyncService:
             data = request.json
             action = data.get("action")
             file_path = data.get("file_path")
+            timestamp = data.get("timestamp", 0)
             
             self.logger.info(f"📥 Received sync request: {action} for {file_path}")
             
@@ -104,6 +114,11 @@ class FileSyncService:
                 return jsonify({"error": "Invalid data"}), 400
 
             try:
+                # Check if we already handled a more recent version of this file
+                if self.is_file_syncing(file_path):
+                    self.logger.debug(f"⏩ Skipping sync request for syncing file: {file_path}")
+                    return jsonify({"status": "skipped"}), 200
+
                 self.mark_file_syncing(file_path)
                 local_path = os.path.join(self.LOCAL_SYNC_DIR, file_path)
 
@@ -118,14 +133,14 @@ class FileSyncService:
                     if os.path.exists(local_path):
                         os.remove(local_path)
                         self.logger.info(f"🗑️ Successfully deleted file: {file_path}")
-                    else:
-                        self.logger.warning(f"⚠️ File already deleted: {file_path}")
                     return jsonify({"status": "success"}), 200
 
             except Exception as e:
                 self.logger.error(f"❌ Sync error for {file_path}: {str(e)}", exc_info=True)
                 return jsonify({"error": str(e)}), 500
             finally:
+                # Keep the file marked as syncing for a short time to prevent loops
+                time.sleep(0.5)  # Small delay to prevent immediate re-triggering
                 self.unmark_file_syncing(file_path)
 
         @self.app.route("/poll", methods=["GET"])
@@ -142,11 +157,17 @@ class FileSyncService:
     def upload_file(self, file_path):
         """Upload a file to remote instance."""
         if self.is_file_syncing(file_path):
-            self.logger.debug(f"Skipping upload of syncing file: {file_path}")
+            self.logger.debug(f"⏩ Skipping upload of syncing file: {file_path}")
             return
 
         try:
+            self.mark_file_syncing(file_path)
             full_path = os.path.join(self.LOCAL_SYNC_DIR, file_path)
+            
+            if not os.path.exists(full_path):
+                self.logger.warning(f"⚠️ File no longer exists: {file_path}")
+                return
+
             with open(full_path, 'rb') as f:
                 content = f.read()
 
@@ -156,21 +177,28 @@ class FileSyncService:
                 json={
                     "action": "upload",
                     "file_path": file_path,
-                    "file_content": content.decode('utf-8', errors='ignore')
+                    "file_content": content.decode('utf-8', errors='ignore'),
+                    "timestamp": time.time()
                 },
                 timeout=10
             )
             
-            if response.status_code != 200:
-                self.logger.error(f"Failed to upload {file_path}: {response.text}")
+            if response.status_code == 200:
+                self.logger.info(f"✅ Successfully uploaded: {file_path}")
+            else:
+                self.logger.error(f"❌ Failed to upload {file_path}: {response.text}")
 
         except Exception as e:
-            self.logger.error(f"Error uploading {file_path}: {str(e)}")
+            self.logger.error(f"❌ Error uploading {file_path}: {str(e)}")
+        finally:
+            # Keep the file marked as syncing for a short time to prevent loops
+            time.sleep(0.5)  # Small delay to prevent immediate re-triggering
+            self.unmark_file_syncing(file_path)
 
     def delete_file(self, file_path):
         """Delete a file from remote instance."""
         if self.is_file_syncing(file_path):
-            self.logger.debug(f"Skipping deletion of syncing file: {file_path}")
+            self.logger.debug(f"⏩ Skipping deletion of syncing file: {file_path}")
             return
 
         try:
