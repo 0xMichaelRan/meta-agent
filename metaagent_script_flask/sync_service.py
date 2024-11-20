@@ -19,9 +19,9 @@ class FileSyncService:
         # Ensure the local sync directory exists
         os.makedirs(self.LOCAL_SYNC_DIR, exist_ok=True)
 
-        # Initialize a list to track changes
-        self.changes = []
-        self.lock = threading.Lock()  # To synchronize access to changes
+        # Track files being synced to prevent loops
+        self.syncing_files = set()
+        self.sync_lock = threading.Lock()
 
         # Configure logging
         logging.basicConfig(
@@ -35,127 +35,110 @@ class FileSyncService:
         self.app = Flask(__name__)
         self._setup_routes()
 
+    def is_file_syncing(self, file_path):
+        """Check if a file is currently being synced."""
+        with self.sync_lock:
+            return file_path in self.syncing_files
+
+    def mark_file_syncing(self, file_path):
+        """Mark a file as being synced."""
+        with self.sync_lock:
+            self.syncing_files.add(file_path)
+            logging.debug(f"Marked file as syncing: {file_path}")
+
+    def unmark_file_syncing(self, file_path):
+        """Unmark a file as being synced."""
+        with self.sync_lock:
+            self.syncing_files.discard(file_path)
+            logging.debug(f"Unmarked file from syncing: {file_path}")
+
     def _setup_routes(self):
         @self.app.route("/sync", methods=["POST"])
         def sync_endpoint():
-            """API Endpoint to handle file synchronization requests."""
-            auth_header = request.headers.get("Authorization")
-            if auth_header != f"Bearer {self.API_KEY}":
-                logging.warning("Unauthorized access attempt.")
+            """Handle incoming sync requests."""
+            if request.headers.get("Authorization") != f"Bearer {self.API_KEY}":
                 return jsonify({"error": "Unauthorized"}), 401
 
             data = request.json
             action = data.get("action")
             file_path = data.get("file_path")
-            file_content = data.get("file_content")
-
+            
             if not action or not file_path:
-                logging.error("Invalid action or file_path in sync request.")
                 return jsonify({"error": "Invalid data"}), 400
 
-            if action == "upload":
-                # Save the uploaded file to the local sync directory
+            try:
+                self.mark_file_syncing(file_path)
                 local_path = os.path.join(self.LOCAL_SYNC_DIR, file_path)
-                os.makedirs(os.path.dirname(local_path), exist_ok=True)
-                try:
+
+                if action == "upload":
+                    os.makedirs(os.path.dirname(local_path), exist_ok=True)
                     with open(local_path, "wb") as f:
-                        f.write(file_content.encode())
-                    logging.info(f"File uploaded: {local_path}")
-                    # Record the change to avoid re-syncing
-                    with self.lock:
-                        self.changes.append({
-                            "action": "upload",
-                            "file_path": file_path,
-                            "file_content": file_content
-                        })
-                    return jsonify({"message": "File uploaded successfully"}), 200
-                except Exception as e:
-                    logging.error(f"Error uploading file {local_path}: {e}")
-                    return jsonify({"error": "File upload failed"}), 500
+                        f.write(data["file_content"].encode())
+                    logging.info(f"Synced file: {file_path}")
+                    return jsonify({"status": "success"}), 200
 
-            elif action == "delete":
-                # Delete the file locally
-                local_path = os.path.join(self.LOCAL_SYNC_DIR, file_path)
-                if os.path.exists(local_path):
-                    try:
+                elif action == "delete":
+                    if os.path.exists(local_path):
                         os.remove(local_path)
-                        logging.info(f"File deleted: {local_path}")
-                        # Record the change to avoid re-syncing
-                        with self.lock:
-                            self.changes.append({
-                                "action": "delete",
-                                "file_path": file_path
-                            })
-                        return jsonify({"message": "File deleted successfully"}), 200
-                    except Exception as e:
-                        logging.error(f"Error deleting file {local_path}: {e}")
-                        return jsonify({"error": "File deletion failed"}), 500
-                else:
-                    logging.warning(f"Attempted to delete non-existent file: {local_path}")
-                    return jsonify({"message": "File does not exist"}), 200
+                        logging.info(f"Deleted file: {file_path}")
+                    return jsonify({"status": "success"}), 200
 
-            logging.error("Invalid action in sync request.")
-            return jsonify({"error": "Invalid action"}), 400
-
-        @self.app.route("/poll", methods=["GET"])
-        def poll_remote():
-            """API Endpoint to return the list of changes since the last poll."""
-            auth_header = request.headers.get("Authorization")
-            if auth_header != f"Bearer {self.API_KEY}":
-                logging.warning("Unauthorized poll attempt.")
-                return jsonify({"error": "Unauthorized"}), 401
-
-            with self.lock:
-                # Return the current list of changes
-                changes_to_return = self.changes.copy()
-                # Clear the changes after polling
-                self.changes.clear()
-
-            logging.info(f"Poll request received. Returning {len(changes_to_return)} changes.")
-            return jsonify(changes_to_return), 200
+            except Exception as e:
+                logging.error(f"Sync error for {file_path}: {str(e)}")
+                return jsonify({"error": str(e)}), 500
+            finally:
+                self.unmark_file_syncing(file_path)
 
     def upload_file(self, file_path):
-        """Upload a file to the remote server."""
-        try:
-            with open(file_path, "rb") as f:
-                content = f.read()
-        except FileNotFoundError:
-            logging.error(f"File not found for upload: {file_path}")
+        """Upload a file to remote instance."""
+        if self.is_file_syncing(file_path):
+            logging.debug(f"Skipping upload of syncing file: {file_path}")
             return
 
-        file_relative_path = os.path.relpath(file_path, self.LOCAL_SYNC_DIR)
         try:
+            full_path = os.path.join(self.LOCAL_SYNC_DIR, file_path)
+            with open(full_path, 'rb') as f:
+                content = f.read()
+
             response = requests.post(
                 f"{self.REMOTE_URL}/sync",
                 headers={"Authorization": f"Bearer {self.API_KEY}"},
                 json={
                     "action": "upload",
-                    "file_path": file_relative_path,
-                    "file_content": content.decode(errors='ignore'),  # Handle binary files appropriately
+                    "file_path": file_path,
+                    "file_content": content.decode('utf-8', errors='ignore')
                 },
+                timeout=10
             )
+            
             if response.status_code != 200:
                 logging.error(f"Failed to upload {file_path}: {response.text}")
-            else:
-                logging.info(f"Uploaded file: {file_relative_path}")
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Error uploading file {file_path}: {e}")
+
+        except Exception as e:
+            logging.error(f"Error uploading {file_path}: {str(e)}")
 
     def delete_file(self, file_path):
-        """Delete a file on the remote server."""
-        file_relative_path = os.path.relpath(file_path, self.LOCAL_SYNC_DIR)
+        """Delete a file from remote instance."""
+        if self.is_file_syncing(file_path):
+            logging.debug(f"Skipping deletion of syncing file: {file_path}")
+            return
+
         try:
             response = requests.post(
                 f"{self.REMOTE_URL}/sync",
                 headers={"Authorization": f"Bearer {self.API_KEY}"},
-                json={"action": "delete", "file_path": file_relative_path},
+                json={
+                    "action": "delete",
+                    "file_path": file_path
+                },
+                timeout=10
             )
+            
             if response.status_code != 200:
                 logging.error(f"Failed to delete {file_path}: {response.text}")
-            else:
-                logging.info(f"Deleted file: {file_relative_path}")
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Error deleting file {file_path}: {e}")
+
+        except Exception as e:
+            logging.error(f"Error deleting {file_path}: {str(e)}")
 
     class WatchdogHandler(FileSystemEventHandler):
         """Handler for Watchdog events."""
@@ -164,14 +147,22 @@ class FileSyncService:
             self.service = service
 
         def on_modified(self, event):
-            if not event.is_directory:
-                logging.info(f"File modified: {event.src_path}")
-                self.service.upload_file(event.src_path)
+            if event.is_directory:
+                return
+            
+            relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
+            if not self.service.is_file_syncing(relative_path):
+                logging.info(f"File modified: {relative_path}")
+                self.service.upload_file(relative_path)
 
         def on_created(self, event):
-            if not event.is_directory:
-                logging.info(f"File created: {event.src_path}")
-                self.service.upload_file(event.src_path)
+            if event.is_directory:
+                return
+            
+            relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
+            if not self.service.is_file_syncing(relative_path):
+                logging.info(f"File created: {relative_path}")
+                self.service.upload_file(relative_path)
 
         def on_deleted(self, event):
             if not event.is_directory:
