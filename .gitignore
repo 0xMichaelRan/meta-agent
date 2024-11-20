@@ -47,4 +47,4 @@ coverage/
 # Ignore dependency directories
 node_modules/
 bower_components/
-test_folder/
+sync_folder/

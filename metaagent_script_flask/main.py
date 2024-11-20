@@ -1,6 +1,8 @@
 import threading
 import time
 from sync_service import FileSyncService
+import signal
+import sys
 
 
 def run_instance(api_key, local_sync_dir, remote_url, poll_interval, port):
@@ -15,10 +17,18 @@ def run_instance(api_key, local_sync_dir, remote_url, poll_interval, port):
 
 
 if __name__ == "__main__":
+    def signal_handler(sig, frame):
+        print("Shutting down gracefully...")
+        sys.exit(0)
+
+    # Handle termination signals
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     # Configuration for Instance 1
     instance1_config = {
         "api_key": "test_api_key",
-        "local_sync_dir": "test_folder/metaagent1",
+        "local_sync_dir": "sync_folder/metaagent1",
         "remote_url": "http://127.0.0.1:3461",  # Points to Instance 2
         "poll_interval": 5,
         "port": 3459,
@@ -27,7 +37,7 @@ if __name__ == "__main__":
     # Configuration for Instance 2
     instance2_config = {
         "api_key": "test_api_key",
-        "local_sync_dir": "test_folder/metaagent2",
+        "local_sync_dir": "sync_folder/metaagent2",
         "remote_url": "http://127.0.0.1:3459",  # Points to Instance 1
         "poll_interval": 5,
         "port": 3461,
@@ -61,10 +71,10 @@ if __name__ == "__main__":
     thread2.daemon = True
     thread2.start()
 
-    # Keep the main thread alive to allow both instances to run
     print("Starting both synchronization instances...")
     try:
         while True:
-            time.sleep(10)
+            time.sleep(1)
     except KeyboardInterrupt:
         print("Shutting down synchronization services...")
+        sys.exit(0)
