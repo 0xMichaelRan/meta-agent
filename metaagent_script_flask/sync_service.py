@@ -52,6 +52,20 @@ class FileSyncService:
                 return jsonify({"message": "File deleted successfully"}), 200
 
             return jsonify({"error": "Invalid action"}), 400
+        
+        @self.app.route("/poll", methods=["GET"])
+        def poll_remote():
+            """Simulate remote changes."""
+            if request.headers.get("Authorization") != f"Bearer {self.API_KEY}":
+                return jsonify({"error": "Unauthorized"}), 401
+
+            # Mock remote changes
+            changes = [
+                {"action": "upload", "file_path": "remote_file.txt", "file_content": "Remote content"},
+                {"action": "delete", "file_path": "old_file.txt"}
+            ]
+            return jsonify(changes), 200
+
 
     def upload_file(self, file_path):
         """Upload a file to the remote server."""
