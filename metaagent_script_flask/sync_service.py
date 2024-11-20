@@ -15,6 +15,7 @@ POLL_INTERVAL = 5  # Interval for polling remote changes (seconds)
 # Flask App
 app = Flask(__name__)
 
+
 @app.route("/sync", methods=["POST"])
 def sync_endpoint():
     """API Endpoint to handle file synchronization requests."""
@@ -43,6 +44,7 @@ def sync_endpoint():
 
     return jsonify({"error": "Invalid action"}), 400
 
+
 def upload_file(file_path):
     """Upload a file to the remote server."""
     with open(file_path, "rb") as f:
@@ -61,8 +63,10 @@ def upload_file(file_path):
     if response.status_code != 200:
         print(f"Failed to upload {file_path}: {response.text}")
 
+
 class WatchdogHandler(FileSystemEventHandler):
     """Handler for Watchdog events."""
+
     def on_modified(self, event):
         if not event.is_directory:
             print(f"File modified: {event.src_path}")
@@ -84,6 +88,7 @@ class WatchdogHandler(FileSystemEventHandler):
             if response.status_code != 200:
                 print(f"Failed to delete {event.src_path}: {response.text}")
 
+
 def start_watchdog():
     """Start Watchdog observer."""
     event_handler = WatchdogHandler()
@@ -97,6 +102,7 @@ def start_watchdog():
     except KeyboardInterrupt:
         observer.stop()
     observer.join()
+
 
 # If the remote server is also running the same service and can push updates to this client via the Flask API, polling is not necessary.
 # If the remote server does not actively notify the client about changes, polling ensures that local changes are in sync with the remote directory.
@@ -114,6 +120,7 @@ def start_polling_remote():
         except Exception as e:
             print(f"Error polling remote: {e}")
         time.sleep(POLL_INTERVAL)
+
 
 if __name__ == "__main__":
     # Start Flask app in a separate thread
