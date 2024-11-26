@@ -1,5 +1,7 @@
 # How it works
 
+This is a file sync service that allows you to sync files between a local directory and a remote server.
+
 1. Client-to-Server Sync:
 
     The client detects local file changes using Watchdog and sends these changes to the server via HTTP requests.
