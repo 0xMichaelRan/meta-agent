@@ -65,10 +65,18 @@ Verify the file is removed.
 
 ```
 poetry shell
-python main.py
+python metaagent_script_flask/run_two_theads.py
 ```
 
-# TODO
+# Use it in prod
+
+pass remote_url to daemon_service.py like this:
+
+```
+TODO
+```
+
+## TODO
 
 - All file sync feature is working.
 - Folder deletion not working.
