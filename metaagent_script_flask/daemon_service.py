@@ -224,8 +224,12 @@ class FileSyncService:
             self.service = service
             self.service.logger.info("🔍 Watchdog handler initialized")
 
+        def _should_ignore(self, file_path):
+            """Determine if a file should be ignored."""
+            return os.path.basename(file_path) == ".DS_Store"
+
         def on_modified(self, event):
-            if event.is_directory:
+            if event.is_directory or self._should_ignore(event.src_path):
                 return
             
             relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
@@ -236,7 +240,7 @@ class FileSyncService:
                 self.service.logger.debug(f"⏩ Skipping modified event for syncing file: {relative_path}")
 
         def on_created(self, event):
-            if event.is_directory:
+            if event.is_directory or self._should_ignore(event.src_path):
                 return
             
             relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
@@ -247,7 +251,7 @@ class FileSyncService:
                 self.service.logger.debug(f"⏩ Skipping created event for syncing file: {relative_path}")
 
         def on_deleted(self, event):
-            if event.is_directory:
+            if event.is_directory or self._should_ignore(event.src_path):
                 return
             
             relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
@@ -256,6 +260,39 @@ class FileSyncService:
                 self.service.delete_file(relative_path)
             else:
                 self.service.logger.debug(f"⏩ Skipping deleted event for syncing file: {relative_path}")
+
+        def on_moved(self, event):
+            if self._should_ignore(event.src_path) or self._should_ignore(event.dest_path):
+                return
+            
+            src_relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
+            dest_relative_path = os.path.relpath(event.dest_path, self.service.LOCAL_SYNC_DIR)
+            
+            if event.is_directory:
+                self.service.logger.info(f"📁 Directory moved from {src_relative_path} to {dest_relative_path}")
+                
+                # Delete the old directory structure on the remote
+                self.service.delete_file(src_relative_path)
+
+                for root, _, files in os.walk(event.dest_path):
+                    for file in files:
+                        if self._should_ignore(file):
+                            continue
+                        file_src_path = os.path.join(root, file)
+                        file_dest_path = file_src_path.replace(event.src_path, event.dest_path, 1)
+                        file_src_relative = os.path.relpath(file_src_path, self.service.LOCAL_SYNC_DIR)
+                        file_dest_relative = os.path.relpath(file_dest_path, self.service.LOCAL_SYNC_DIR)
+                        
+                        if not self.service.is_file_syncing(file_src_relative):
+                            self.service.delete_file(file_src_relative)
+                            self.service.upload_file(file_dest_relative)
+            else:
+                if not self.service.is_file_syncing(src_relative_path):
+                    self.service.logger.info(f"🔄 File moved from {src_relative_path} to {dest_relative_path}")
+                    self.service.delete_file(src_relative_path)
+                    self.service.upload_file(dest_relative_path)
+                else:
+                    self.service.logger.debug(f"⏩ Skipping moved event for syncing file: {src_relative_path}")
 
     def start_watchdog(self):
         """Start Watchdog observer."""
