@@ -25,17 +25,17 @@ poetry new metaagent-script-flask
 poetry add flask requests watchdog
 ```
 
-## Run locally
+## Run 1 instance for testing
 
 ```
 poetry shell
 python metaagent_script_flask/sync_service.py
 ```
 
-## Test Upload
+Now test upload: 
 
 ```
-curl -X POST http://127.0.0.1:5000/sync \
+curl -X POST http://127.0.0.1:3459/sync \
      -H "Authorization: Bearer your_api_key" \
      -H "Content-Type: application/json" \
      -d '{
@@ -45,12 +45,12 @@ curl -X POST http://127.0.0.1:5000/sync \
          }'
 ```
 
-Verify the file appears.
+Verify a new file appears.
 
-## Test Deletion
+Now test deletion:
 
 ```
-curl -X POST http://127.0.0.1:5000/sync \
+curl -X POST http://127.0.0.1:3459/sync \
      -H "Authorization: Bearer your_api_key" \
      -H "Content-Type: application/json" \
      -d '{

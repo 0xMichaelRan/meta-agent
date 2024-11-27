@@ -1,9 +1,13 @@
+import json
 import threading
 import time
 from sync_service import FileSyncService
 import signal
 import sys
 
+def load_config(file_path):
+    with open(file_path, 'r') as file:
+        return json.load(file)
 
 def run_instance(api_key, local_sync_dir, remote_url, poll_interval, port):
     service = FileSyncService(
@@ -15,7 +19,6 @@ def run_instance(api_key, local_sync_dir, remote_url, poll_interval, port):
     )
     service.start()
 
-
 if __name__ == "__main__":
     def signal_handler(sig, frame):
         print("Shutting down gracefully...")
@@ -25,23 +28,9 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # Configuration for Instance 1
-    instance1_config = {
-        "api_key": "test_api_key",
-        "local_sync_dir": "sync_folder/metaagent1",
-        "remote_url": "http://127.0.0.1:3461",  # Points to Instance 2
-        "poll_interval": 5,
-        "port": 3459,
-    }
-
-    # Configuration for Instance 2
-    instance2_config = {
-        "api_key": "test_api_key",
-        "local_sync_dir": "sync_folder/metaagent2",
-        "remote_url": "http://127.0.0.1:3459",  # Points to Instance 1
-        "poll_interval": 5,
-        "port": 3461,
-    }
+    # Load configurations from JSON files
+    instance1_config = load_config('instance1_config.json')
+    instance2_config = load_config('instance2_config.json')
 
     # Start Instance 1 in a separate thread
     thread1 = threading.Thread(
