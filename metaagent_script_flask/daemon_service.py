@@ -154,6 +154,11 @@ class FileSyncService:
             # Return empty response if no changes
             return jsonify([]), 200
 
+        @self.app.route("/ping", methods=["GET"])
+        def pingpong_endpoint():
+            """Pingpong endpoint to check service status."""
+            self.logger.info("💓 Pingpong check received")
+            return jsonify({"status": "pong"}), 200
 
     def upload_file(self, file_path):
         """Upload a file to remote instance."""
