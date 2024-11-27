@@ -1,6 +1,6 @@
 {
     "api_key": "test_api_key",
-    "local_sync_dir": "sync_folder/metaagent1",
+    "local_sync_dir": "sync_folder/multi_thread_master",
     "remote_url": "http://127.0.0.1:3461",
     "poll_interval": 5,
     "port": 3460

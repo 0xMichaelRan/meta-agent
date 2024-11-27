@@ -94,8 +94,8 @@ class FileSyncService:
             self.logger.debug(f"Currently syncing files: {list(self.syncing_files.keys())}")
 
     def _setup_routes(self):
-        @self.app.route("/sync", methods=["POST"])
-        def sync_endpoint():
+        @self.app.route("/handle_upload_and_delete", methods=["POST"])
+        def handle_upload_and_delete_endpoint():
             """Handle incoming sync requests."""
             auth_header = request.headers.get("Authorization")
             if auth_header != f"Bearer {self.API_KEY}":
@@ -143,8 +143,8 @@ class FileSyncService:
                 time.sleep(0.5)  # Small delay to prevent immediate re-triggering
                 self.unmark_file_syncing(file_path)
 
-        @self.app.route("/poll", methods=["GET"])
-        def poll_endpoint():
+        @self.app.route("/poll_client_for_changes", methods=["GET"])
+        def poll_client_for_changes_endpoint():
             """Handle polling requests for changes."""
             auth_header = request.headers.get("Authorization")
             if auth_header != f"Bearer {self.API_KEY}":
@@ -153,6 +153,7 @@ class FileSyncService:
 
             # Return empty response if no changes
             return jsonify([]), 200
+
 
     def upload_file(self, file_path):
         """Upload a file to remote instance."""
@@ -172,7 +173,7 @@ class FileSyncService:
                 content = f.read()
 
             response = requests.post(
-                f"{self.REMOTE_URL}/sync",
+                f"{self.REMOTE_URL}/handle_upload_and_delete",
                 headers={"Authorization": f"Bearer {self.API_KEY}"},
                 json={
                     "action": "upload",
@@ -203,7 +204,7 @@ class FileSyncService:
 
         try:
             response = requests.post(
-                f"{self.REMOTE_URL}/sync",
+                f"{self.REMOTE_URL}/handle_upload_and_delete",
                 headers={"Authorization": f"Bearer {self.API_KEY}"},
                 json={
                     "action": "delete",
@@ -217,6 +218,24 @@ class FileSyncService:
 
         except Exception as e:
             self.logger.error(f"Error deleting {file_path}: {str(e)}")
+
+    def full_sync(self):
+        """Perform a full sync of all files in the local directory to the remote server."""
+        self.logger.info("🔄 Starting full sync of local directory to remote server.")
+        for root, _, files in os.walk(self.LOCAL_SYNC_DIR):
+            for file in files:
+                if self._should_ignore(file):
+                    continue
+                file_path = os.path.join(root, file)
+                relative_path = os.path.relpath(file_path, self.LOCAL_SYNC_DIR)
+                if not self.is_file_syncing(relative_path):
+                    self.logger.info(f"⬆️ Uploading file during full sync: {relative_path}")
+                    self.upload_file(relative_path)
+        self.logger.info("✅ Full sync completed.")
+
+    def _should_ignore(self, file_path):
+        """Determine if a file should be ignored."""
+        return os.path.basename(file_path) == ".DS_Store"
 
     class WatchdogHandler(FileSystemEventHandler):
         def __init__(self, service):
@@ -251,15 +270,25 @@ class FileSyncService:
                 self.service.logger.debug(f"⏩ Skipping created event for syncing file: {relative_path}")
 
         def on_deleted(self, event):
-            if event.is_directory or self._should_ignore(event.src_path):
-                return
-            
             relative_path = os.path.relpath(event.src_path, self.service.LOCAL_SYNC_DIR)
-            if not self.service.is_file_syncing(relative_path):
-                self.service.logger.info(f"🗑️ File deleted: {relative_path}")
+            
+            if event.is_directory:
+                self.service.logger.info(f"🗑️ Directory deleted: {relative_path}")
+                # Recursively delete all files in the directory
+                for root, _, files in os.walk(event.src_path, topdown=False):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        file_relative_path = os.path.relpath(file_path, self.service.LOCAL_SYNC_DIR)
+                        if not self._should_ignore(file_path) and not self.service.is_file_syncing(file_relative_path):
+                            self.service.delete_file(file_relative_path)
+                # Finally, delete the directory itself
                 self.service.delete_file(relative_path)
             else:
-                self.service.logger.debug(f"⏩ Skipping deleted event for syncing file: {relative_path}")
+                if not self._should_ignore(event.src_path) and not self.service.is_file_syncing(relative_path):
+                    self.service.logger.info(f"🗑️ File deleted: {relative_path}")
+                    self.service.delete_file(relative_path)
+                else:
+                    self.service.logger.debug(f"⏩ Skipping deleted event for syncing file: {relative_path}")
 
         def on_moved(self, event):
             if self._should_ignore(event.src_path) or self._should_ignore(event.dest_path):
@@ -315,7 +344,7 @@ class FileSyncService:
         while True:
             try:
                 response = requests.get(
-                    f"{self.REMOTE_URL}/poll",
+                    f"{self.REMOTE_URL}/poll_client_for_changes",
                     headers={"Authorization": f"Bearer {self.API_KEY}"},
                 )
                 if response.status_code == 200:
@@ -361,6 +390,9 @@ class FileSyncService:
     def start(self):
         """Start the synchronization service."""
         self.logger.info("=== Starting Service Components ===")
+        
+        # Perform a full sync on startup
+        self.full_sync()
         
         # Start Flask app in a separate thread
         flask_thread = threading.Thread(target=self.run_flask)
