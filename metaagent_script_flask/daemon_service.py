@@ -280,13 +280,23 @@ class FileSyncService:
                         file_path = os.path.join(root, file)
                         file_relative_path = os.path.relpath(file_path, self.service.LOCAL_SYNC_DIR)
                         if not self._should_ignore(file_path) and not self.service.is_file_syncing(file_relative_path):
-                            self.service.delete_file(file_relative_path)
+                            try:
+                                self.service.logger.info(f"🗑️ Deleting file: {file_relative_path}")
+                                self.service.delete_file(file_relative_path)
+                            except Exception as e:
+                                self.service.logger.error(f"Failed to delete {file_relative_path}: {str(e)}")
                 # Finally, delete the directory itself
-                self.service.delete_file(relative_path)
+                try:
+                    self.service.delete_file(relative_path)
+                except Exception as e:
+                    self.service.logger.error(f"Failed to delete directory {relative_path}: {str(e)}")
             else:
                 if not self._should_ignore(event.src_path) and not self.service.is_file_syncing(relative_path):
-                    self.service.logger.info(f"🗑️ File deleted: {relative_path}")
-                    self.service.delete_file(relative_path)
+                    try:
+                        self.service.logger.info(f"🗑️ File deleted: {relative_path}")
+                        self.service.delete_file(relative_path)
+                    except Exception as e:
+                        self.service.logger.error(f"Failed to delete file {relative_path}: {str(e)}")
                 else:
                     self.service.logger.debug(f"⏩ Skipping deleted event for syncing file: {relative_path}")
 

@@ -60,3 +60,16 @@ curl -X POST http://127.0.0.1:3459/sync \
 ```
 
 Verify the file is removed.
+
+## Run 2 instances for testing
+
+```
+poetry shell
+python main.py
+```
+
+# TODO
+
+- All file sync feature is working.
+- Folder deletion not working.
+- Folder rename is working except old folder will remain on master as empty folder.

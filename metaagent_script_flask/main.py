@@ -5,9 +5,11 @@ from daemon_service import FileSyncService
 import signal
 import sys
 
+
 def load_config(file_path):
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         return json.load(file)
+
 
 def run_instance(api_key, local_sync_dir, remote_url, poll_interval, port):
     service = FileSyncService(
@@ -19,7 +21,9 @@ def run_instance(api_key, local_sync_dir, remote_url, poll_interval, port):
     )
     service.start()
 
+
 if __name__ == "__main__":
+
     def signal_handler(sig, frame):
         print("Shutting down gracefully...")
         sys.exit(0)
@@ -29,18 +33,18 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Load configurations from JSON files
-    instance1_config = load_config('instance1_config.json')
-    instance2_config = load_config('instance2_config.json')
+    client_config = load_config("thread_client_config.json")
+    master_config = load_config("thread_master_config.json")
 
     # Start Instance 1 in a separate thread
     thread1 = threading.Thread(
         target=run_instance,
         args=(
-            instance1_config["api_key"],
-            instance1_config["local_sync_dir"],
-            instance1_config["remote_url"],
-            instance1_config["poll_interval"],
-            instance1_config["port"],
+            client_config["api_key"],
+            client_config["local_sync_dir"],
+            client_config["remote_url"],
+            client_config["poll_interval"],
+            client_config["port"],
         ),
     )
     thread1.daemon = True
@@ -50,11 +54,11 @@ if __name__ == "__main__":
     thread2 = threading.Thread(
         target=run_instance,
         args=(
-            instance2_config["api_key"],
-            instance2_config["local_sync_dir"],
-            instance2_config["remote_url"],
-            instance2_config["poll_interval"],
-            instance2_config["port"],
+            master_config["api_key"],
+            master_config["local_sync_dir"],
+            master_config["remote_url"],
+            master_config["poll_interval"],
+            master_config["port"],
         ),
     )
     thread2.daemon = True
