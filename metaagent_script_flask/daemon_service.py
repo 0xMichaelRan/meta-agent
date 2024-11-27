@@ -7,6 +7,10 @@ import threading
 import time
 import logging
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class FileSyncService:
     def __init__(self, api_key, local_sync_dir, remote_url, poll_interval, port):
@@ -424,17 +428,18 @@ class FileSyncService:
 if __name__ == "__main__":
     # Configuration for a Single Instance
     config = {
-        "api_key": "your_api_key",  # Replace with your actual API key
-        "local_sync_dir": "sync_folder/single_daemon_service",  # Replace with your local folder
-        "poll_interval": 5,  # Interval for polling remote changes (seconds)
-        "port": 3459  # Port number for this instance
+        "api_key": "your_api_key",
+        "local_sync_dir": "sync_folder/single_daemon_service",
+        "poll_interval": 5,
+        "port": 3459,
+        "remote_url": os.getenv("REMOTE_URL")
     }
 
     # Instantiate and start the FileSyncService
     service = FileSyncService(
         api_key=config["api_key"],
         local_sync_dir=config["local_sync_dir"],
-        remote_url=config.get("remote_url"), # Optional, can be left blank
+        remote_url=config.get("remote_url"), # optional, server does not need this
         poll_interval=config["poll_interval"],
         port=config["port"]
     )

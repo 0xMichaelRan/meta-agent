@@ -73,7 +73,7 @@ python metaagent_script_flask/run_two_theads.py
 pass remote_url to daemon_service.py like this:
 
 ```
-TODO
+poetry run python metaagent_script_flask/daemon_service.py
 ```
 
 ## TODO
