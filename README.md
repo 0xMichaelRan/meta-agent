@@ -29,7 +29,7 @@ poetry add flask requests watchdog
 
 ```
 poetry shell
-python metaagent_script_flask/sync_service.py
+python metaagent_script_flask/daemon_service.py
 ```
 
 Now test upload: 
@@ -40,7 +40,7 @@ curl -X POST http://127.0.0.1:3459/sync \
      -H "Content-Type: application/json" \
      -d '{
            "action": "upload",
-           "file_path": "test_file.txt",
+           "file_path": "single_daemon_service_test_file.txt",
            "file_content": "This is a test file content."
          }'
 ```
@@ -55,7 +55,7 @@ curl -X POST http://127.0.0.1:3459/sync \
      -H "Content-Type: application/json" \
      -d '{
            "action": "delete",
-           "file_path": "test_file.txt"
+           "file_path": "single_daemon_service_test_file.txt"
          }'
 ```
 

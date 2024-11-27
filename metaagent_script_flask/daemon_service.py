@@ -51,7 +51,7 @@ class FileSyncService:
         )
 
         # Setup handlers
-        file_handler = logging.FileHandler(f'sync_service_{self.PORT}.log')
+        file_handler = logging.FileHandler(f'daemon_service_{self.PORT}.log')
         file_handler.setFormatter(formatter)
         
         console_handler = logging.StreamHandler()
@@ -341,8 +341,7 @@ if __name__ == "__main__":
     # Configuration for a Single Instance
     config = {
         "api_key": "your_api_key",  # Replace with your actual API key
-        "local_sync_dir": "sync_folder/metaagent",  # Replace with your local folder
-        "remote_url": "http://127.0.0.1:5000",  # Replace with your remote URL
+        "local_sync_dir": "sync_folder/single_daemon_service",  # Replace with your local folder
         "poll_interval": 5,  # Interval for polling remote changes (seconds)
         "port": 3459  # Port number for this instance
     }
@@ -351,7 +350,7 @@ if __name__ == "__main__":
     service = FileSyncService(
         api_key=config["api_key"],
         local_sync_dir=config["local_sync_dir"],
-        remote_url=config["remote_url"],
+        remote_url=config.get("remote_url"), # Optional, can be left blank
         poll_interval=config["poll_interval"],
         port=config["port"]
     )
