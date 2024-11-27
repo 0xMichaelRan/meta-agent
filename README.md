@@ -22,17 +22,17 @@ This is a file sync service that allows you to sync files between a local direct
 
 ```
 poetry new metaagent-script-flask
-poetry add flask requests watchdog
+poetry add flask requests watchdog python-dotenv
 ```
 
-## Run 1 instance for testing
+## Run 1 instance
 
 ```
 poetry shell
 python metaagent_script_flask/daemon_service.py
 ```
 
-Now test upload: 
+Curl test upload: 
 
 ```
 curl -X POST http://127.0.0.1:3459/sync \
@@ -45,9 +45,7 @@ curl -X POST http://127.0.0.1:3459/sync \
          }'
 ```
 
-Verify a new file appears.
-
-Now test deletion:
+Verify a new file appears. Then Curl test deletion:
 
 ```
 curl -X POST http://127.0.0.1:3459/sync \
@@ -61,23 +59,32 @@ curl -X POST http://127.0.0.1:3459/sync \
 
 Verify the file is removed.
 
-## Run 2 instances for testing
+## Run 2 instances
 
 ```
 poetry shell
 python metaagent_script_flask/run_two_theads.py
 ```
 
-# Use it in prod
+# Use it in Cloudc:
 
-pass remote_url to daemon_service.py like this:
+1. Add remote_url to .env, get it from Cloudflare.
 
-```
-poetry run python metaagent_script_flask/daemon_service.py
-```
+2. Change this line to a local dir:
+
+    ```
+    "local_sync_dir": "this_is_line_432_in_daemon_service.py",
+    ```
+
+3. Run script like this:
+
+    ```
+    poetry run python metaagent_script_flask/daemon_service.py
+    ```
 
 ## TODO
 
 - All file sync feature is working.
+- Client will upload all files to server during startup, no version checking, just replace everything.
 - Folder deletion not working.
-- Folder rename is working except old folder will remain on master as empty folder.
+- Folder rename is working except old folder will remain on master as a empty folder.
