@@ -159,6 +159,11 @@ class FileSyncService:
             """Pingpong endpoint to check service status."""
             self.logger.info("💓 Pingpong check received")
             return jsonify({"status": "pong"}), 200
+        
+        @self.app.route("/", methods=["GET"])
+        def home_page():
+            """Return a simple HTML page."""
+            return "<html><body><h1>Welcome to the Meta Agent!</h1></body></html>", 200
 
     def upload_file(self, file_path):
         """Upload a file to remote instance."""
