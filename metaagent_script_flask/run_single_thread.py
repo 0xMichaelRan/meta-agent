@@ -26,7 +26,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Load configuration from JSON file
-    config = load_config("macbook_single_thread_run.json")
+    config = load_config("config/macbook3_prod_run.json")
 
     # Create and start the service
     service = FileSyncService(

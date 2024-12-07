@@ -33,8 +33,8 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Load configurations from JSON files
-    client_config = load_config("thread_client_config.json")
-    master_config = load_config("thread_master_config.json")
+    client_config = load_config("config/thread_client_config.json")
+    master_config = load_config("config/thread_master_config.json")
 
     # Start Instance 1 in a separate thread
     thread1 = threading.Thread(

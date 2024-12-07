@@ -48,4 +48,6 @@ coverage/
 node_modules/
 bower_components/
 sync_folder/
-.env
+
+# config file that contains local Mac info
+config/macbook3_prod_run.json

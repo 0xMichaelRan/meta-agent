@@ -1,0 +1,7 @@
+{
+    "api_key": "test_api_key",
+    "local_sync_dir": "/home/rslsync/_resilio/notes/",
+    "remote_url": "not_required_for_server_mode",
+    "poll_interval": 18,
+    "port": 6688
+  }
