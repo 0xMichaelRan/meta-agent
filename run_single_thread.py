@@ -17,17 +17,26 @@ if __name__ == "__main__":
 
     # Add argument parser
     parser = argparse.ArgumentParser(description='Run FileSyncService')
-    parser.add_argument('--mode', type=str, choices=['test', 'server', 'prod'],
-                       default='test',
-                       help='Run mode: test (default, no sync), server (handle incoming only), or prod (do full sync)')
-    args = parser.parse_args()
+    
+    try:
+        parser.add_argument('--mode', type=str, choices=['test', 'server', 'prod'],
+                           required=True,
+                           help='Run mode: test (default, no sync), server (handle incoming only), or prod (do full sync)')
+        parser.add_argument('--config', type=str, required=True,
+                           help='Path to configuration JSON file')
+        args = parser.parse_args()
+    except SystemExit:
+        print("\nExample usage:")
+        print("--mode: 'test', 'server', or 'prod'")
+        print("--config: config/macbook3_prod_run.json")
+        sys.exit(1)
 
     # Handle termination signals
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Load configuration from JSON file
-    config = load_config("config/macbook3_prod_run.json")
+    config = load_config(args.config)
 
     # Create and start the service
     service = FileSyncService(
