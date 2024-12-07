@@ -17,8 +17,9 @@ if __name__ == "__main__":
 
     # Add argument parser
     parser = argparse.ArgumentParser(description='Run FileSyncService')
-    parser.add_argument('-t', '--test', action='store_true', 
-                       help='Run in test mode (no file sync)')
+    parser.add_argument('--mode', type=str, choices=['test', 'server', 'prod'],
+                       default='test',
+                       help='Run mode: test (default, no sync), server (handle incoming only), or prod (do full sync)')
     args = parser.parse_args()
 
     # Handle termination signals
@@ -35,8 +36,8 @@ if __name__ == "__main__":
         remote_url=config["remote_url"],
         poll_interval=config["poll_interval"],
         port=config["port"],
-        test_mode=args.test  # Pass test mode parameter
+        mode=args.mode  # Pass mode parameter instead of test_mode
     )
     
-    print(f"Starting synchronization service... {'(Test Mode)' if args.test else ''}")
+    print(f"Starting synchronization service... ({args.mode.upper()} Mode)")
     service.start() 

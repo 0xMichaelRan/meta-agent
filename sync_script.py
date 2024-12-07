@@ -10,15 +10,15 @@ import logging
 
 class FileSyncService:
     def __init__(
-        self, api_key, local_sync_dir, remote_url, poll_interval, port, test_mode=False
+        self, api_key, local_sync_dir, remote_url, poll_interval, port, mode="prod"
     ):
-        # Add test_mode parameter
-        self.test_mode = test_mode
+        # Replace test_mode with mode parameter
+        self.mode = mode
 
         # Configuration
         self.API_KEY = api_key
         self.LOCAL_SYNC_DIR = local_sync_dir
-        self.REMOTE_URL = remote_url
+        self.REMOTE_URL = remote_url if mode != "server" else None
         self.POLL_INTERVAL = poll_interval
         self.PORT = port
 
@@ -105,7 +105,7 @@ class FileSyncService:
     def _setup_routes(self):
         @self.app.route("/handle_upload_and_delete", methods=["POST"])
         def handle_upload_and_delete_endpoint():
-            """Handle incoming sync requests."""
+            """Handle incoming sync requests"""
             auth_header = request.headers.get("Authorization")
             if auth_header != f"Bearer {self.API_KEY}":
                 self.logger.warning("❌ Unauthorized sync attempt")
@@ -175,8 +175,12 @@ class FileSyncService:
 
     def upload_file(self, file_path):
         """Upload a file to remote instance."""
-        if self.test_mode:
+        if self.mode == "test":
             self.logger.info("🧪 Test mode: Skipping file upload")
+            return
+        
+        if self.mode == "server":
+            self.logger.info("🖥️ Server mode: Skipping file upload")
             return
 
         if self.is_file_syncing(file_path):
@@ -220,8 +224,12 @@ class FileSyncService:
 
     def delete_file(self, file_path):
         """Delete a file from remote instance."""
-        if self.test_mode:
+        if self.mode == "test":
             self.logger.info("🧪 Test mode: Skipping file deletion")
+            return
+            
+        if self.mode == "server":
+            self.logger.info("🖥️ Server mode: Skipping file deletion")
             return
 
         if self.is_file_syncing(file_path):
@@ -244,8 +252,12 @@ class FileSyncService:
 
     def full_sync(self):
         """Perform a full sync of all files in the local directory to the remote server."""
-        if self.test_mode:
+        if self.mode == "test":
             self.logger.info("🧪 Test mode: Skipping full sync")
+            return
+            
+        if self.mode == "server":
+            self.logger.info("🖥️ Server mode: Skipping full sync")
             return
 
         self.logger.info("🔄 Starting full sync of local directory to remote server.")

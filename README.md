@@ -62,7 +62,7 @@ Verify the file is removed.
 
 ```
 poetry shell
-python metaagent_script_flask/run_two_theads.py
+python run_two_theads.py
 ```
 
 ## TODO
