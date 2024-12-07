@@ -6,11 +6,6 @@ from watchdog.events import FileSystemEventHandler
 import threading
 import time
 import logging
-from datetime import datetime
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 class FileSyncService:
     def __init__(self, api_key, local_sync_dir, remote_url, poll_interval, port, test_mode=False):
