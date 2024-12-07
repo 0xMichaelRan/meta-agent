@@ -13,7 +13,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class FileSyncService:
-    def __init__(self, api_key, local_sync_dir, remote_url, poll_interval, port):
+    def __init__(self, api_key, local_sync_dir, remote_url, poll_interval, port, test_mode=False):
+        # Add test_mode parameter
+        self.test_mode = test_mode
+        
         # Configuration
         self.API_KEY = api_key
         self.LOCAL_SYNC_DIR = local_sync_dir
@@ -166,6 +169,10 @@ class FileSyncService:
         
     def upload_file(self, file_path):
         """Upload a file to remote instance."""
+        if self.test_mode:
+            self.logger.info("🧪 Test mode: Skipping file upload")
+            return
+            
         if self.is_file_syncing(file_path):
             self.logger.debug(f"⏩ Skipping upload of syncing file: {file_path}")
             return
@@ -207,6 +214,10 @@ class FileSyncService:
 
     def delete_file(self, file_path):
         """Delete a file from remote instance."""
+        if self.test_mode:
+            self.logger.info("🧪 Test mode: Skipping file deletion")
+            return
+            
         if self.is_file_syncing(file_path):
             self.logger.debug(f"⏩ Skipping deletion of syncing file: {file_path}")
             return
@@ -230,6 +241,10 @@ class FileSyncService:
 
     def full_sync(self):
         """Perform a full sync of all files in the local directory to the remote server."""
+        if self.test_mode:
+            self.logger.info("🧪 Test mode: Skipping full sync")
+            return
+            
         self.logger.info("🔄 Starting full sync of local directory to remote server.")
         for root, _, files in os.walk(self.LOCAL_SYNC_DIR):
             for file in files:
@@ -422,25 +437,3 @@ class FileSyncService:
         # Start Watchdog in the main thread
         self.logger.info("🚀 MetaAgent service starting...")
         self.start_watchdog()
-
-
-# Main Execution Block
-if __name__ == "__main__":
-    # Configuration for a Single Instance
-    config = {
-        "api_key": "your_api_key",
-        "local_sync_dir": "sync_folder/single_daemon_service",
-        "poll_interval": 5,
-        "port": 3459,
-        "remote_url": os.getenv("REMOTE_URL")
-    }
-
-    # Instantiate and start the FileSyncService
-    service = FileSyncService(
-        api_key=config["api_key"],
-        local_sync_dir=config["local_sync_dir"],
-        remote_url=config.get("remote_url"), # optional, server does not need this
-        poll_interval=config["poll_interval"],
-        port=config["port"]
-    )
-    service.start()
