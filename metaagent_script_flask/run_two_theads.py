@@ -1,7 +1,7 @@
 import json
 import threading
 import time
-from daemon_service import FileSyncService
+from sync_script import FileSyncService
 import signal
 import sys
 

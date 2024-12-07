@@ -53,7 +53,7 @@ class FileSyncService:
         )
 
         # Setup handlers
-        file_handler = logging.FileHandler(f'daemon_service_{self.PORT}.log')
+        file_handler = logging.FileHandler(f'log/sync_script_{self.PORT}.log')
         file_handler.setFormatter(formatter)
         
         console_handler = logging.StreamHandler()

@@ -2,7 +2,7 @@ import json
 import signal
 import sys
 import argparse
-from daemon_service import FileSyncService
+from sync_script import FileSyncService
 
 
 def load_config(file_path):
